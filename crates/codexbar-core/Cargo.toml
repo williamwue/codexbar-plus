@@ -1,0 +1,38 @@
+[package]
+name = "codexbar-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+tracing.workspace = true
+base64.workspace = true
+rquickjs = "0.9"
+url = "2"
+regex = "1"
+hmac = "0.12"
+sha2 = "0.10"
+time-tz = { version = "2", features = ["db"] }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+aes-gcm = "0.11.1"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt", "macros", "time", "test-util"] }
+
+[target."cfg(windows)".dependencies]
+windows = { version = "0.62.2", features = ["Win32_Security_Cryptography", "Win32_Foundation", "Win32_Storage_FileSystem", "Win32_System_IO"] }
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_JobObjects",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+] }

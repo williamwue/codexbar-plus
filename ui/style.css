@@ -1,0 +1,283 @@
+:root {
+  --bg: #0a0a0c;
+  --panel: #141419;
+  --panel-2: #1b1b22;
+  --text: #f2f2f5;
+  --muted: #8e8e9c;
+  --line: #26262f;
+  --ok: #16d3b4;
+  --warn: #e8b84b;
+  --crit: #f4685f;
+  --accent: #6e5aff;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f6f6f8;
+    --panel: #ffffff;
+    --panel-2: #f0f0f4;
+    --text: #16161a;
+    --muted: #6a6a78;
+    --line: #e2e2e9;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.meter {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 18px;
+}
+
+.meter i {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--ok) 70%, rgba(255, 255, 255, 0.12) 70%);
+}
+
+.meter i:last-child {
+  height: 4px;
+  background: linear-gradient(90deg, var(--ok) 95%, rgba(255, 255, 255, 0.12) 95%);
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+}
+
+button {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 9px;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+#close {
+  padding: 2px 8px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 10px 12px 0;
+  flex-wrap: wrap;
+}
+
+.tab {
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 12px;
+  background: transparent;
+}
+
+.tab[aria-selected="true"] {
+  background: var(--panel-2);
+  border-color: var(--accent);
+}
+
+.tab .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+
+.cards {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.card h2 {
+  margin: 0 0 2px;
+  font-size: 14px;
+}
+
+.card .sub {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.lane + .lane {
+  margin-top: 11px;
+}
+
+.lane-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.lane-title {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.lane-value {
+  font-weight: 600;
+}
+
+.bar {
+  margin-top: 5px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--ok);
+  transition: width 0.25s ease;
+}
+
+.bar.warn > span {
+  background: var(--warn);
+}
+
+.bar.crit > span {
+  background: var(--crit);
+}
+
+.reset {
+  color: var(--muted);
+  font-size: 11.5px;
+  margin-top: 4px;
+}
+
+.rows {
+  margin-top: 11px;
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+  display: grid;
+  gap: 5px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.row span:first-child {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--crit);
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 11.5px;
+  margin-top: 6px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.section-title {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.incident {
+  margin: 10px 0 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  font-size: 12px;
+}
+
+.incident.crit {
+  border-color: var(--crit);
+  background: color-mix(in srgb, var(--crit) 12%, transparent);
+}
+
+.incident strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.incident-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 11.5px;
+}

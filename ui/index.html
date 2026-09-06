@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CodexBar</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="titlebar" data-tauri-drag-region>
+      <div class="brand">
+        <span class="meter" aria-hidden="true"><i></i><i></i></span>
+        <span>CodexBar</span>
+      </div>
+      <div class="actions">
+        <button id="settings" data-i18n="settings" data-i18n-title="settings" title="Settings" type="button">Settings</button>
+        <button id="refresh" data-i18n="refresh" data-i18n-title="refreshNow" title="Refresh now" type="button">Refresh</button>
+        <button id="close" data-i18n-title="close" title="Close" type="button">×</button>
+      </div>
+    </header>
+
+    <nav id="tabs" class="tabs" data-i18n-label="providers" aria-label="Providers"></nav>
+    <main id="cards" class="cards" aria-live="polite"></main>
+    <footer class="footer">
+      <span id="status" data-i18n="loading">Loading…</span>
+      <button id="quit" data-i18n="quit" type="button">Quit</button>
+    </footer>
+
+    <script src="i18n.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

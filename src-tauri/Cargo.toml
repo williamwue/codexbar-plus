@@ -1,0 +1,33 @@
+[package]
+name = "codexbar-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "CodexBar for Windows — AI coding provider limits in your tray"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+codexbar-core = { path = "../crates/codexbar-core" }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-notification = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-global-shortcut = "2"
+tiny-skia = "0.11"
+serde.workspace = true
+serde_json.workspace = true
+time.workspace = true
+velopack = "1.2"
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+# Tray glyph colour must follow the taskbar theme, which lives in the registry.
+winreg = "0.55"
+
+[features]
+# Tauri's default custom-protocol feature is enabled by the bundler in release builds.
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

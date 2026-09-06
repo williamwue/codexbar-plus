@@ -1,0 +1,11 @@
+# Upstream reference clone (analysis only, not part of this project)
+/upstream-ref/
+
+# Scratch space for captures and manual verification runs
+/.tmp/
+
+# Build output
+/target/
+/src-tauri/gen/
+/dist/
+node_modules/

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CodexBar Settings</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body class="settings">
+    <header class="settings-head">
+      <div>
+        <h1 data-i18n="providers">Providers</h1>
+        <p id="summary" class="muted" data-i18n="loading">Loading…</p>
+      </div>
+      <div class="actions">
+        <button id="refresh" data-i18n="refreshNow" type="button">Refresh now</button>
+        <button id="close" data-i18n="close" type="button">Close</button>
+      </div>
+    </header>
+
+    <div class="settings-body">
+      <aside>
+        <input id="filter" type="search" data-i18n-placeholder="filterProviders" placeholder="Filter providers" autocomplete="off" />
+        <ul id="list"></ul>
+      </aside>
+      <main id="detail"></main>
+    </div>
+
+    <footer class="settings-foot">
+      <label class="autostart">
+        <input id="autostart" type="checkbox" />
+        <span data-i18n="launchAtLogin">Launch at login</span>
+      </label>
+      <button id="check-update" data-i18n="checkUpdates" type="button">Check for updates</button>
+      <span class="muted" data-i18n="shortcut">Shortcut: Ctrl+Shift+Space</span>
+      <label class="language">
+        <span data-i18n="language">Language</span>
+        <select id="language">
+          <option value="en" data-i18n="english">English</option>
+          <option value="zh-Hans" data-i18n="simplifiedChinese">简体中文</option>
+          <option value="zh-Hant" data-i18n="traditionalChinese">繁體中文</option>
+        </select>
+      </label>
+      <span id="paths" class="muted"></span>
+    </footer>
+    <script src="i18n.js"></script>
+
+    <script src="settings.js"></script>
+  </body>
+</html>
