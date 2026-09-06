@@ -674,8 +674,6 @@ WebView2 的用户数据目录默认是 `%LOCALAPPDATA%\<bundle identifier>\EBWe
 
 ### 仍未解决
 
-- **真实 feed 地址未定**：仓库没有 git 远端，`CODEXBAR_UPDATE_URL` 目前只在本地 loopback 上验证过。
-  发布前需要确定 HTTPS 托管位置（GitHub Releases / 对象存储 / 自建）。
 - **代码签名**：`vpk` 每次都警告 `No signing parameters provided`，未签名 exe 首次运行会被 SmartScreen 拦。
 - **卸载残留**：Velopack 只删自己的安装目录，`%LOCALAPPDATA%\CodexBar\webview` 会留下。配置与密钥
   （`%APPDATA%\CodexBar\`）留下是对的，webview profile 属于缓存，后续可挂 Velopack 卸载钩子清理。
@@ -734,3 +732,39 @@ WebView2 的用户数据目录默认是 `%LOCALAPPDATA%\<bundle identifier>\EBWe
 ## 附：并行侦查产出（完整原文）
 
 `agent://ProviderArch`、`agent://PlatformDeps`、`agent://UILayer`、`agent://CLIAndData`、`agent://WinFeasibility`、`agent://SwiftOnWindows`
+
+## 18. 发行渠道落到 GitHub Releases
+
+仓库：<https://github.com/williamwue/codexbar-plus>（public，MIT）。feed 就是仓库本身。
+
+### 为什么要分两种 source
+
+GitHub Releases 不是静态文件 feed —— 产物挂在 releases API 下面，必须用 `GithubSource`。
+`updater.rs` 因此按 feed URL 的 **host** 选择 source：`github.com` 走 `GithubSource`，其余走 `HttpSource`。
+静态 feed 保留不是历史包袱：它是唯一能在**不发布任何东西**的前提下，在本地把
+安装/升级/回滚跑一遍的方式（§17 就是这么验的）。host 判定有单测，
+`https://releases.example.com/github.com/x` 和 `https://notgithub.com/x/y` 都必须判成静态。
+
+**不编译 access token**：仓库是 public，而把 token 编进分发出去的 exe，等于把作者的 GitHub
+凭据交给每个拿到安装包的人。匿名调用限速 60 次/小时/IP，对"一个桌面应用查更新"绰绰有余。
+
+`package-windows.ps1` 新增 `-Publish`（上传到 GitHub Releases）与 `-NoDraft`（直接发布，
+否则留 draft）。token 从 `GITHUB_TOKEN` 或 `gh auth token` 取，不进命令行、不进 shell 历史。
+
+### 已验证（实机，真实 GitHub feed，容器外）
+
+| 步骤 | 结果 |
+|---|---|
+| draft 上传 | 5 个产物（Setup.exe / Portable.zip / nupkg / releases.win.json / RELEASES）就位 |
+| draft 对客户端不可见 | 已打包的 App `--check-update` → `emptyFeed`（证明真的打到了 releases API） |
+| 发布 v0.1.0 | 同一个 App 立刻变 `upToDate` |
+| 从 GitHub 安装 | 下载已发布的 `Setup.exe --silent` → 装出 0.1.0，对真实 feed 报 `upToDate` |
+| 升级 | 发布 v0.1.1 → `updateAvailable 0.1.1` → apply → 实际升到 0.1.1 → `upToDate` |
+| 撤回回滚 | 删除 v0.1.1 release → apply → 实际降回 0.1.0 |
+
+验证完把 v0.1.1 release 与 tag 删掉了，仓库只留 v0.1.0。
+
+**一个诚实的观察**：删掉 v0.1.1 之后紧接着的那次 `--check-update` 仍报 `upToDate`，6 秒后的
+`--apply-update` 才拿到降级目标并执行。这不是代码问题，是 GitHub releases API 在撤回后的
+短暂缓存/最终一致性 —— 拿 GitHub Releases 当 feed 就会有这个窗口期，撤回坏版本后客户端
+不是瞬间全部回滚。
