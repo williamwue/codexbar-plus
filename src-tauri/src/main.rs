@@ -666,40 +666,59 @@ fn spawn_refresh_loop(app: AppHandle) {
 }
 
 /// Builds the popover window: frameless, always on top, no taskbar button, hidden.
+/// Where WebView2 keeps its profile.
+///
+/// The default is `%LOCALAPPDATA%\<bundle identifier>\EBWebView`, which is exactly the
+/// directory Velopack installs the app into. Leaving it there makes the installer fail on
+/// any machine that ran the app before installing it: Velopack tries to clear its install
+/// root and hits the leftover profile. Both windows must name the same folder — WebView2
+/// runs one browser process per profile.
+fn webview_data_directory() -> Option<std::path::PathBuf> {
+    codexbar_core::paths::local_appdata_dir().map(|dir| dir.join("CodexBar").join("webview"))
+}
+
 fn build_popover(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
-    tauri::WebviewWindowBuilder::new(
+    let mut builder = tauri::WebviewWindowBuilder::new(
         app,
         POPOVER_LABEL,
         tauri::WebviewUrl::App("index.html".into()),
-    )
-    .title("CodexBar")
-    .inner_size(400.0, 560.0)
-    .resizable(false)
-    .decorations(false)
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .shadow(true)
-    .center()
-    .visible(false)
-    .build()
+    );
+    if let Some(dir) = webview_data_directory() {
+        builder = builder.data_directory(dir);
+    }
+    builder
+        .title("CodexBar")
+        .inner_size(400.0, 560.0)
+        .resizable(false)
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .shadow(true)
+        .center()
+        .visible(false)
+        .build()
 }
 
 /// Builds the settings window: a normal window that starts hidden and never steals focus.
 fn build_settings(app: &AppHandle) -> tauri::Result<tauri::WebviewWindow> {
-    tauri::WebviewWindowBuilder::new(
+    let mut builder = tauri::WebviewWindowBuilder::new(
         app,
         SETTINGS_LABEL,
         tauri::WebviewUrl::App("settings.html".into()),
-    )
-    .title("CodexBar Settings")
-    .inner_size(880.0, 620.0)
-    .min_inner_size(720.0, 480.0)
-    .resizable(true)
-    .skip_taskbar(false)
-    .center()
-    .visible(false)
-    .focused(false)
-    .build()
+    );
+    if let Some(dir) = webview_data_directory() {
+        builder = builder.data_directory(dir);
+    }
+    builder
+        .title("CodexBar Settings")
+        .inner_size(880.0, 620.0)
+        .min_inner_size(720.0, 480.0)
+        .resizable(true)
+        .skip_taskbar(false)
+        .center()
+        .visible(false)
+        .focused(false)
+        .build()
 }
 
 /// Destroys and rebuilds a window whose webview died.
@@ -734,10 +753,74 @@ fn should_prevent_exit(code: Option<i32>) -> bool {
     code.is_none()
 }
 
+/// A headless update action requested on the command line.
+///
+/// Update handling otherwise lives behind the settings window, which cannot be driven
+/// unattended, so the release pipeline has no way to prove that a packaged build really
+/// upgrades and rolls back. These two flags run the same `updater` calls the window makes
+/// and print the result, so packaging can be verified end to end from a script.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum UpdateCliMode {
+    Check,
+    Apply,
+}
+
+fn update_cli_mode<I, S>(args: I) -> Option<UpdateCliMode>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    args.into_iter().find_map(|arg| match arg.as_ref() {
+        "--check-update" => Some(UpdateCliMode::Check),
+        "--apply-update" => Some(UpdateCliMode::Apply),
+        _ => None,
+    })
+}
+
+/// Runs the requested update action and returns the process exit code, or `None` when the
+/// command line asked for the normal tray app.
+fn run_update_cli() -> Option<i32> {
+    let mode = update_cli_mode(std::env::args().skip(1))?;
+    let code = match mode {
+        UpdateCliMode::Check => match updater::check() {
+            Ok(status) => {
+                println!("{}", serde_json::to_string(&status).unwrap_or_default());
+                0
+            }
+            Err(err) => {
+                eprintln!("update check failed: {err}");
+                1
+            }
+        },
+        UpdateCliMode::Apply => match updater::download_and_schedule() {
+            // The updater waits for this process to exit before swapping files, so the
+            // caller must let it finish; returning here does exactly that.
+            Ok(true) => {
+                println!("{{\"scheduled\":true}}");
+                0
+            }
+            Ok(false) => {
+                println!("{{\"scheduled\":false}}");
+                0
+            }
+            Err(err) => {
+                eprintln!("update apply failed: {err}");
+                1
+            }
+        },
+    };
+    Some(code)
+}
+
 fn main() {
     // Must run before logging, Tauri, or any other application initialization. During an
     // install/update hook Velopack may terminate this process after handling the hook.
     velopack::VelopackApp::build().run();
+
+    // Before any window or tray setup: these flags are a console-only path.
+    if let Some(code) = run_update_cli() {
+        std::process::exit(code);
+    }
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -955,6 +1038,26 @@ mod tests {
             "the Quit menu item must work"
         );
         assert!(!should_prevent_exit(Some(1)));
+    }
+
+    #[test]
+    fn update_flags_are_recognised_and_nothing_else_is() {
+        assert_eq!(
+            update_cli_mode(["--check-update"]),
+            Some(UpdateCliMode::Check)
+        );
+        assert_eq!(
+            update_cli_mode(["--apply-update"]),
+            Some(UpdateCliMode::Apply)
+        );
+        // The tray must still start normally for the launch-at-login argument.
+        assert_eq!(update_cli_mode(["--autostart"]), None);
+        assert_eq!(update_cli_mode(Vec::<String>::new()), None);
+        assert_eq!(
+            update_cli_mode(["--autostart", "--check-update"]),
+            Some(UpdateCliMode::Check),
+            "the flag must be found past other arguments"
+        );
     }
 
     /// Exercises the exact functions the settings window invokes over IPC.

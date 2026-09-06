@@ -1,6 +1,9 @@
 param(
+    # HTTPS for anything shippable. Loopback HTTP is allowed only so the install/upgrade/
+    # rollback loop can be exercised against a local feed before a real host exists; the URL
+    # is compiled into the binary, so a test build can never be mistaken for a release one.
     [Parameter(Mandatory = $true)]
-    [ValidatePattern('^https://')]
+    [ValidatePattern('^(https://|http://(127\.0\.0\.1|localhost)(:\d+)?(/|$))')]
     [string]$UpdateUrl,
 
     [ValidatePattern('^[A-Za-z0-9._-]+$')]

@@ -634,7 +634,51 @@ INFO rebuilt window after webview loss label="settings"
 - 托盘进程在接入 Velopack、通知、自启和全局快捷键插件后完成真实 Codex 刷新并更新图标；
   启动日志没有快捷键注册冲突或插件初始化错误。
 - 安装/升级/回滚产物仍受本机缺少 .NET SDK 8 / `vpk` 阻塞，未把“配置可编译”误报为
-  “安装包已实机升级”。
+  “安装包已实机升级”。**（该阻塞已在 §17 解除并完成实机验证。）**
+
+## 17. 发行链路实机打通（安装 / 升级 / 回滚）
+
+装上 .NET SDK 8.0.424 + `vpk` 1.2.0（与 `velopack` crate 同为 1.2.0）后，`tools/package-windows.ps1`
+首次真实产出安装包：`Setup.exe`(12.5 MB)、`Portable.zip`、`*-full.nupkg`、后续版本的 `*-delta.nupkg`
+以及 `releases.win.json`。
+
+### 为了验证而做的两处改动
+
+- **`--check-update` / `--apply-update` 无头入口**（`src-tauri/src/main.rs`）。更新逻辑原本只挂在设置窗口上，
+  而设置窗口无法自动化点击，所以「安装包真的能升级」这件事没有任何可脚本化的证明路径。
+  两个开关调用的是设置窗口调的同一组 `updater` 函数，打印 JSON 后退出；`--autostart` 等参数不受影响（有单测）。
+- **打包脚本允许 loopback HTTP feed**。真实 feed 地址尚未确定（仓库还没有远端），因此用本地
+  `http://127.0.0.1:8799/` 起了一个静态 feed 完成全流程。feed 地址是编译期常量，测试构建不可能被误当成发布构建。
+
+### 顺带修掉的一个真实缺陷
+
+WebView2 的用户数据目录默认是 `%LOCALAPPDATA%\<bundle identifier>\EBWebView`，而这**正是 Velopack 的安装根目录**
+`%LOCALAPPDATA%\app.codexbar.windows\`。任何先跑过 App、再装安装包的机器上，安装器都会因为清不掉这个残留 profile
+而失败（实测报 `Failed to remove existing application directory`）。现在两个窗口都显式指向
+`%LOCALAPPDATA%\CodexBar\webview`（`webview_data_directory()`）。
+
+### 已验证（实机，真实安装目录）
+
+必须在 Claude 桌面版的 MSIX 容器**之外**跑：容器内 `%LOCALAPPDATA%` 被重定向到
+`C:\WpSystem\…\Packages\Claude_…\LocalCache\Local\`，Velopack 的文件搬运会跨重定向边界报
+`os error 17 (CrossesDevices)`。这是容器假象，不是 App 缺陷——改用计划任务在容器外执行后全部通过：
+
+| 阶段 | 结果 |
+|---|---|
+| 全新安装 | `Setup.exe --silent` exit 0，`current\sq.version` = 0.1.1，`--check-update` → `upToDate` |
+| 回滚（feed 撤回 0.1.1） | `--check-update` → `rollbackAvailable` 0.1.0 → `--apply-update` → 实际降级到 0.1.0，App 被更新器重启 |
+| 升级（feed 恢复 0.1.1） | `--check-update` → `updateAvailable` 0.1.1 → `--apply-update` → `{"scheduled":true}` → 0.1.1 → `upToDate` |
+| 卸载 | `Update.exe --uninstall --silent` exit 0，安装目录已删除 |
+
+`cargo test --workspace`：**215 个测试通过**，1 个子进程 helper test 按设计 ignored，零警告。
+
+### 仍未解决
+
+- **真实 feed 地址未定**：仓库没有 git 远端，`CODEXBAR_UPDATE_URL` 目前只在本地 loopback 上验证过。
+  发布前需要确定 HTTPS 托管位置（GitHub Releases / 对象存储 / 自建）。
+- **代码签名**：`vpk` 每次都警告 `No signing parameters provided`，未签名 exe 首次运行会被 SmartScreen 拦。
+- **卸载残留**：Velopack 只删自己的安装目录，`%LOCALAPPDATA%\CodexBar\webview` 会留下。配置与密钥
+  （`%APPDATA%\CodexBar\`）留下是对的，webview profile 属于缓存，后续可挂 Velopack 卸载钩子清理。
 
 ## 16. 已落地实现（M9：首批 CLI 与 CLI-owned 提供商）
 

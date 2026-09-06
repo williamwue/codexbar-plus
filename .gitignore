@@ -9,3 +9,7 @@
 /src-tauri/gen/
 /dist/
 node_modules/
+
+# Editor/agent worktree scratch
+/.orca/
+/ .orca/
