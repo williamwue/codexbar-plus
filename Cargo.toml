@@ -6,7 +6,7 @@ resolver = "2"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/steipete/CodexBar"
+repository = "https://github.com/williamwue/codexbar-plus"
 
 [workspace.dependencies]
 anyhow = "1"

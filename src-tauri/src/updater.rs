@@ -2,10 +2,44 @@
 //! process cannot redirect update checks by changing the runtime environment.
 
 use serde::Serialize;
-use velopack::sources::HttpSource;
+use velopack::sources::{GithubSource, HttpSource};
 use velopack::{UpdateCheck, UpdateManager, UpdateOptions};
 
 const UPDATE_URL: Option<&str> = option_env!("CODEXBAR_UPDATE_URL");
+
+/// Which Velopack source a feed URL asks for.
+///
+/// Releases live on GitHub, which is not a static file feed: assets hang off the releases
+/// API, so those URLs need `GithubSource`. A plain static feed is still supported because
+/// it is the only way to exercise install/upgrade/rollback locally, against a directory
+/// served over loopback, without publishing anything.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FeedKind {
+    GitHub,
+    Static,
+}
+
+fn feed_kind(url: &str) -> FeedKind {
+    let host = url
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(url)
+        .split('/')
+        .next()
+        .unwrap_or("")
+        .rsplit('@')
+        .next()
+        .unwrap_or("")
+        .split(':')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if host == "github.com" || host.ends_with(".github.com") {
+        FeedKind::GitHub
+    } else {
+        FeedKind::Static
+    }
+}
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -26,7 +60,17 @@ fn manager() -> Result<UpdateManager, String> {
         AllowVersionDowngrade: true,
         ..UpdateOptions::default()
     };
-    UpdateManager::new(HttpSource::new(url), Some(options), None).map_err(|err| err.to_string())
+    match feed_kind(url) {
+        // No access token: the repository is public, and a token compiled into a shipped
+        // binary would hand the author's GitHub credentials to everyone who installs it.
+        // Unauthenticated API calls are rate limited to 60/hr per IP, which is far above
+        // what one desktop app checking for updates needs. Pre-releases are not offered.
+        FeedKind::GitHub => {
+            UpdateManager::new(GithubSource::new(url, None, false), Some(options), None)
+        }
+        FeedKind::Static => UpdateManager::new(HttpSource::new(url), Some(options), None),
+    }
+    .map_err(|err| err.to_string())
 }
 
 pub fn check() -> Result<UpdateStatus, String> {
@@ -88,6 +132,30 @@ pub fn download_and_schedule() -> Result<bool, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn github_feeds_are_told_apart_from_static_ones() {
+        assert_eq!(
+            feed_kind("https://github.com/williamwue/codexbar-plus"),
+            FeedKind::GitHub
+        );
+        assert_eq!(
+            feed_kind("https://github.com/williamwue/codexbar-plus/"),
+            FeedKind::GitHub
+        );
+        // The loopback feed used to verify packaging must stay a static feed.
+        assert_eq!(feed_kind("http://127.0.0.1:8799/"), FeedKind::Static);
+        assert_eq!(
+            feed_kind("https://releases.example.com/github.com/x"),
+            FeedKind::Static,
+            "the host decides, not some later path segment"
+        );
+        assert_eq!(
+            feed_kind("https://notgithub.com/x/y"),
+            FeedKind::Static,
+            "a host that merely ends in the same letters is not GitHub"
+        );
+    }
 
     #[test]
     fn unconfigured_development_build_reports_a_stable_state() {

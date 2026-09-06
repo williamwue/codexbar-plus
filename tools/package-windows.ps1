@@ -9,7 +9,15 @@ param(
     [ValidatePattern('^[A-Za-z0-9._-]+$')]
     [string]$Channel = 'win',
 
-    [string]$OutputDir = 'Releases'
+    [string]$OutputDir = 'Releases',
+
+    # Uploads the packed artifacts to GitHub Releases. The token comes from the environment
+    # (GITHUB_TOKEN, or gh's own store) so it never reaches the command line or shell history.
+    [switch]$Publish,
+
+    # Publishes the release immediately instead of leaving it as a draft. A draft is
+    # invisible to the updater, so this is what actually opens the feed to installed apps.
+    [switch]$NoDraft
 )
 
 $ErrorActionPreference = 'Stop'
@@ -62,6 +70,32 @@ try {
         --channel $Channel `
         --outputDir $output
     if ($LASTEXITCODE -ne 0) { throw "vpk pack failed with exit code $LASTEXITCODE" }
+
+    if ($Publish) {
+        if ($UpdateUrl -notmatch '^https://github\.com/[^/]+/[^/]+/?$') {
+            throw "-Publish needs -UpdateUrl to be the repository URL, e.g. https://github.com/owner/repo. Got: $UpdateUrl"
+        }
+        $repoUrl = $UpdateUrl.TrimEnd('/')
+
+        $token = $env:GITHUB_TOKEN
+        if (-not $token -and (Get-Command gh -ErrorAction SilentlyContinue)) {
+            $token = (& gh auth token 2>$null)
+        }
+        if (-not $token) {
+            throw 'Set GITHUB_TOKEN, or sign in with `gh auth login`, before using -Publish.'
+        }
+
+        & vpk upload github `
+            --outputDir $output `
+            --channel $Channel `
+            --repoUrl $repoUrl `
+            --token $token `
+            --tag "v$version" `
+            --releaseName "CodexBar $version" `
+            --publish ([bool]$NoDraft) `
+            --merge $true
+        if ($LASTEXITCODE -ne 0) { throw "vpk upload github failed with exit code $LASTEXITCODE" }
+    }
 } finally {
     Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
 }
