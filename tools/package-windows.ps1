@@ -17,8 +17,34 @@ param(
 
     # Publishes the release immediately instead of leaving it as a draft. A draft is
     # invisible to the updater, so this is what actually opens the feed to installed apps.
-    [switch]$NoDraft
+    [switch]$NoDraft,
+
+    # Optional Authenticode signing. Keep the PFX and password outside the repository;
+    # CI should provide both through protected environment variables.
+    [string]$SigningPfx = $env:CODEXBAR_SIGNING_PFX,
+
+    [string]$SigningPassword = $env:CODEXBAR_SIGNING_PASSWORD,
+
+    # Release jobs should fail instead of silently producing an unsigned package.
+    [switch]$RequireSignature
 )
+
+$signArgs = @()
+if ($RequireSignature -and -not $SigningPfx) {
+    throw 'Signing is required but CODEXBAR_SIGNING_PFX was not provided.'
+}
+if ($SigningPfx) {
+    if (-not (Test-Path $SigningPfx)) {
+        throw "Signing certificate not found: $SigningPfx"
+    }
+    if (-not $SigningPassword) {
+        throw 'CODEXBAR_SIGNING_PASSWORD is required when signing is enabled.'
+    }
+    $signArgs = @(
+        '--signParams',
+        "/f `"$SigningPfx`" /p `"$SigningPassword`" /fd sha256 /tr http://timestamp.digicert.com /td sha256"
+    )
+}
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -68,7 +94,8 @@ try {
         --aumid app.codexbar.windows `
         --shortcuts StartMenuRoot `
         --channel $Channel `
-        --outputDir $output
+        --outputDir $output `
+        @signArgs
     if ($LASTEXITCODE -ne 0) { throw "vpk pack failed with exit code $LASTEXITCODE" }
 
     if ($Publish) {

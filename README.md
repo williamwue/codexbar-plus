@@ -45,7 +45,23 @@ tools/package-windows.ps1 -UpdateUrl https://github.com/williamwue/codexbar-plus
 
 Add `-Publish` to upload to GitHub Releases as a draft, and `-NoDraft` to publish it. The
 feed URL is compiled into the binary, so a build can only ever check the feed it was built
-for. Releases are not code signed yet: SmartScreen will warn on first run.
+for.
+
+Release signing is optional for local builds. For a signed release, keep the PFX and password
+outside the repository and provide them through `CODEXBAR_SIGNING_PFX` and
+`CODEXBAR_SIGNING_PASSWORD`, then require signing explicitly:
+
+```powershell
+$env:CODEXBAR_SIGNING_PFX = 'C:\secure\codexbar-signing.pfx'
+$env:CODEXBAR_SIGNING_PASSWORD = '<secret>'
+tools/package-windows.ps1 `
+  -UpdateUrl https://github.com/williamwue/codexbar-plus `
+  -RequireSignature
+```
+
+The signing flow uses SHA-256 Authenticode with an RFC 3161 timestamp. Formal releases
+require `signtool.exe` from the Windows SDK and a CA-issued certificate or Azure Trusted
+Signing configuration. Unsigned builds will trigger SmartScreen warnings.
 
 ## Layout
 
