@@ -10,8 +10,8 @@
 /dist/
 /Releases/
 node_modules/
-.pfx
-.p12
+*.pfx
+*.p12
 
 # Editor/agent worktree scratch
 /.orca/

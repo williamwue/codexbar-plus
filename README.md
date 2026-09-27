@@ -59,9 +59,15 @@ tools/package-windows.ps1 `
   -RequireSignature
 ```
 
-The signing flow uses SHA-256 Authenticode with an RFC 3161 timestamp. Formal releases
-require `signtool.exe` from the Windows SDK and a CA-issued certificate or Azure Trusted
-Signing configuration. Unsigned builds will trigger SmartScreen warnings.
+The signing flow uses SHA-256 Authenticode with an RFC 3161 timestamp. This script accepts
+a PFX certificate; paths with spaces and passwords with quotes are supported. Velopack
+uses its bundled Windows signing tools. A self-signed certificate can verify the local
+packaging flow, but public releases need a trusted code-signing identity. Signing does not
+guarantee SmartScreen reputation. Azure Artifact Signing needs a separate Velopack
+configuration and is not enabled by these PFX options.
+
+Run `pwsh -File tools/test-package-windows.ps1` to check required-signature failures,
+argument escaping, cleanup, and build/pack failure handling without publishing a release.
 
 ## Layout
 
