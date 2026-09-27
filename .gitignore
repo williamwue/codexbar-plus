@@ -8,7 +8,10 @@
 /target/
 /src-tauri/gen/
 /dist/
+/Releases/
 node_modules/
+*.pfx
+*.p12
 
 # Editor/agent worktree scratch
 /.orca/

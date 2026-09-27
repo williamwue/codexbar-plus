@@ -17,10 +17,44 @@ param(
 
     # Publishes the release immediately instead of leaving it as a draft. A draft is
     # invisible to the updater, so this is what actually opens the feed to installed apps.
-    [switch]$NoDraft
+    [switch]$NoDraft,
+
+    # Optional Authenticode signing. Keep the PFX and password outside the repository;
+    # CI should provide both through protected environment variables.
+    [string]$SigningPfx = $env:CODEXBAR_SIGNING_PFX,
+
+    [string]$SigningPassword = $env:CODEXBAR_SIGNING_PASSWORD,
+
+    # Release jobs should fail instead of silently producing an unsigned package.
+    [switch]$RequireSignature
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Quote-SignArgument([string]$Value) {
+    $escaped = [regex]::Replace($Value, '(\\*)"', '$1$1\"')
+    $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+    return '"' + $escaped + '"'
+}
+
+$signArgs = @()
+if ($RequireSignature -and -not $SigningPfx) {
+    throw 'Signing is required but CODEXBAR_SIGNING_PFX was not provided.'
+}
+if ($SigningPfx) {
+    if (-not (Test-Path -LiteralPath $SigningPfx -PathType Leaf)) {
+        throw "Signing certificate not found: $SigningPfx"
+    }
+    if (-not $SigningPassword) {
+        throw 'CODEXBAR_SIGNING_PASSWORD is required when signing is enabled.'
+    }
+    $certificatePath = (Resolve-Path -LiteralPath $SigningPfx).ProviderPath
+    $signArgs = @(
+        '--signParams',
+        "/f $(Quote-SignArgument $certificatePath) /p $(Quote-SignArgument $SigningPassword) /fd sha256 /tr http://timestamp.digicert.com /td sha256"
+    )
+}
+
 $repo = Split-Path -Parent $PSScriptRoot
 $manifest = Get-Content (Join-Path $repo 'Cargo.toml') -Raw
 $versionMatch = [regex]::Match(
@@ -39,20 +73,25 @@ if (-not (Get-Command vpk -ErrorAction SilentlyContinue)) {
     throw 'vpk is required. Install .NET SDK 8, then run: dotnet tool install -g vpk'
 }
 
-$stage = Join-Path $repo 'target\velopack-stage'
+$target = Join-Path $repo 'target'
+if ((Test-Path -LiteralPath $target) -and
+    ((Get-Item -LiteralPath $target).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+    throw 'Packaging target must not be a filesystem link.'
+}
+$stage = Join-Path $target ('velopack-stage-' + [guid]::NewGuid().ToString('N'))
 $output = if ([IO.Path]::IsPathRooted($OutputDir)) {
     $OutputDir
 } else {
     Join-Path $repo $OutputDir
 }
 
-Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
-New-Item $stage -ItemType Directory | Out-Null
 New-Item $output -ItemType Directory -Force | Out-Null
+New-Item $stage -ItemType Directory -Force | Out-Null
 
+$previousUpdateUrl = $env:CODEXBAR_UPDATE_URL
 try {
     $env:CODEXBAR_UPDATE_URL = $UpdateUrl
-    & cargo build --release -p codexbar-app
+    & cargo build --release --locked --manifest-path (Join-Path $repo 'Cargo.toml') -p codexbar-app
     if ($LASTEXITCODE -ne 0) { throw "cargo build failed with exit code $LASTEXITCODE" }
 
     Copy-Item (Join-Path $repo 'target\release\codexbar-app.exe') $stage
@@ -68,7 +107,8 @@ try {
         --aumid app.codexbar.windows `
         --shortcuts StartMenuRoot `
         --channel $Channel `
-        --outputDir $output
+        --outputDir $output `
+        @signArgs
     if ($LASTEXITCODE -ne 0) { throw "vpk pack failed with exit code $LASTEXITCODE" }
 
     if ($Publish) {
@@ -97,5 +137,9 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "vpk upload github failed with exit code $LASTEXITCODE" }
     }
 } finally {
-    Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
+    $env:CODEXBAR_UPDATE_URL = $previousUpdateUrl
+    if ((Test-Path -LiteralPath $stage) -and
+        -not ((Get-Item -LiteralPath $stage).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        Remove-Item -LiteralPath $stage -Recurse -Force
+    }
 }

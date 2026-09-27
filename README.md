@@ -45,7 +45,29 @@ tools/package-windows.ps1 -UpdateUrl https://github.com/williamwue/codexbar-plus
 
 Add `-Publish` to upload to GitHub Releases as a draft, and `-NoDraft` to publish it. The
 feed URL is compiled into the binary, so a build can only ever check the feed it was built
-for. Releases are not code signed yet: SmartScreen will warn on first run.
+for.
+
+Release signing is optional for local builds. For a signed release, keep the PFX and password
+outside the repository and provide them through `CODEXBAR_SIGNING_PFX` and
+`CODEXBAR_SIGNING_PASSWORD`, then require signing explicitly:
+
+```powershell
+$env:CODEXBAR_SIGNING_PFX = 'C:\secure\codexbar-signing.pfx'
+$env:CODEXBAR_SIGNING_PASSWORD = '<secret>'
+tools/package-windows.ps1 `
+  -UpdateUrl https://github.com/williamwue/codexbar-plus `
+  -RequireSignature
+```
+
+The signing flow uses SHA-256 Authenticode with an RFC 3161 timestamp. This script accepts
+a PFX certificate; paths with spaces and passwords with quotes are supported. Velopack
+uses its bundled Windows signing tools. A self-signed certificate can verify the local
+packaging flow, but public releases need a trusted code-signing identity. Signing does not
+guarantee SmartScreen reputation. Azure Artifact Signing needs a separate Velopack
+configuration and is not enabled by these PFX options.
+
+Run `pwsh -File tools/test-package-windows.ps1` to check required-signature failures,
+argument escaping, cleanup, and build/pack failure handling without publishing a release.
 
 ## Layout
 
