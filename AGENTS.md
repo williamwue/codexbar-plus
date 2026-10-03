@@ -8,3 +8,11 @@ Use the existing maintainer account through official OAuth/CLI login. Do not req
 <!-- END official-cloud-operations -->
 
 # Repository instructions
+
+## Development entry
+
+For setup or runtime changes, use [codexbar-win setup](README.md) and the current
+package/toolchain manifests. Select checks for the affected module; a
+documentation-only change needs reference and diff checks. Complete
+authorized local implementation and verification, then report unavailable
+platform, device, or production evidence explicitly.
